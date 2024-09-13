@@ -16,7 +16,6 @@ parser_build = subparsers.add_parser("build", help="Builds moonloader archive fr
 # Парсим
 args = parser.parse_args()
 
-
 if args.command == "init":
   content = {
     "name": "my-project",
@@ -50,15 +49,23 @@ elif args.command == "build":
     except KeyError:
       source_path = "src"
     
+    try:
+      library_path = content["library"]
+    except KeyError:
+      library_path = "lib"
+    
     # Получим путь к init.lua
     init_path = os.path.join(source_path, "init.lua")
+    
+    # Путь к библиотекам.
 
     # Создаём архив.
     with zipfile.ZipFile(name + ".zip", mode="w") as zip:
       # Записываем init файл.
       zip.write(init_path, name + ".lua")
       
-      print(f"add core file: {init_path}")
+      print("= Processing source code.")
+      print(f"  + Add init file: {init_path}")
       
       # Проходимся по всему содержимому src
       for subdir, dirs, files in os.walk(source_path):
@@ -73,4 +80,17 @@ elif args.command == "build":
             zip.write(path, path.replace(source_path + "\\", ""))
             
             # Лог для юзера            
-            print(f" * add file: {path}")
+            print(f"  + Add source file: {path}")
+      
+      print("= Add libraries.")
+      
+      # Проходимся по библиотекам.
+      for subdir, dirs, files in os.walk(library_path):
+        for file in files:
+            path = os.path.join(subdir, file)
+      
+            # Записываем библиотеку.
+            zip.write(path)
+            
+            # Лог для юзера
+            print(f"  + Add library file: {path}")
