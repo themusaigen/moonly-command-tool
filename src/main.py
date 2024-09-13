@@ -62,7 +62,7 @@ elif args.command == "build":
     # Создаём архив.
     with zipfile.ZipFile(name + ".zip", mode="w") as zip:
       # Записываем init файл.
-      zip.write(init_path, name + ".lua")
+      zip.write(init_path, name + "-init.lua")
       
       print("= Processing source code.")
       print(f"  + Add init file: {init_path}")
