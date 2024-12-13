@@ -1,5 +1,22 @@
 {
-  "name": "test-project",
+  "name": "my-project",
   "library": "lib",
-  "source": "src"
+  "source": "src",
+  "build": {
+    "output": "dist",
+    "additionalDirs": [
+      "resource"
+    ]
+  },
+  "distribute": {
+    "output": "dist",
+    "additionalDirs": [
+      "lib/test-lib"
+    ],
+    "ignoredDirs": [
+      "src/ignored",
+      "src/test-project/ignored",
+      "lib/dev"
+    ]
+  }
 }

@@ -3,3 +3,5 @@
 tests/test-project.zip
 
 bin
+
+src/__pycache__

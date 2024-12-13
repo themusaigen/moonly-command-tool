@@ -2,8 +2,10 @@ import argparse
 import json
 import zipfile
 import os
+import utility
+import bundler
 
-# Главный парсер
+# Главный парсер.
 parser = argparse.ArgumentParser(prog='moonly')
 subparsers = parser.add_subparsers(dest='command', title="Usage")
 
@@ -13,6 +15,9 @@ parser_init = subparsers.add_parser('init', help='Initializes new moonly project
 # Команда "build"
 parser_build = subparsers.add_parser("build", help="Builds moonloader archive from moonly project")
 
+# Команда "bundle"
+parser_bundle = subparsers.add_parser("bundle", help="Bundles all moonly project into one Lua file for distribution")
+
 # Парсим
 args = parser.parse_args()
 
@@ -20,7 +25,16 @@ if args.command == "init":
   content = {
     "name": "my-project",
     "library": "lib",
-    "source": "src"
+    "source": "src",
+    "build": {
+      "output": "dist",
+      "additionalDirs": []
+    },
+    "distribute": {
+      "output": "dist",
+      "additionalDirs": [],
+      "ignoredDirs": [],
+    }
   }
   
   with open("project.json", "w") as project:
@@ -32,35 +46,22 @@ elif args.command == "build":
     # Читаем содержимое project.json
     content = json.load(project)
 
-    # На случай, если не указано имя проекта в поле name.
-    folders = os.getcwd().split("\\")
-  
     # Получим исходники и имя проекта. 
-    try:
-      name = content["name"]
-    except KeyError:
-      # На случай, если не указано имя проекта в поле name.
-      folders = os.getcwd().split("\\")
-
-      name = folders[len(folders) - 1]   
-
-    try:
-      source_path = content["source"]
-    except KeyError:
-      source_path = "src"
-    
-    try:
-      library_path = content["library"]
-    except KeyError:
-      library_path = "lib"
+    name = utility.get_project_name(content)
+    source_path = utility.get_source_path(content)
+    library_path = utility.get_libraries_path(content)
     
     # Получим путь к init.lua
     init_path = os.path.join(source_path, "init.lua")
-    
-    # Путь к библиотекам.
+
+    # Создаём директорию.    
+    try:
+      os.mkdir(utility.get_build_path(content))
+    except:
+      pass # Директория уже создана, пропускаем.
 
     # Создаём архив.
-    with zipfile.ZipFile(name + ".zip", mode="w") as zip:
+    with zipfile.ZipFile(f"{utility.get_build_path(content)}/{name}.zip", mode="w") as zip:
       # Записываем init файл.
       zip.write(init_path, name + "-init.lua")
       
@@ -82,7 +83,7 @@ elif args.command == "build":
             # Лог для юзера            
             print(f"  + Add source file: {path}")
       
-      print("= Add libraries.")
+      print("= Processing libraries.")
       
       # Проходимся по библиотекам.
       for subdir, dirs, files in os.walk(library_path):
@@ -94,3 +95,57 @@ elif args.command == "build":
             
             # Лог для юзера
             print(f"  + Add library file: {path}")
+      
+      print("= Processing additional directories.")
+      
+      # Проходимся по дополнительным директориям.
+      for dir in utility.get_build_additional_dirs(content):
+        for subdir, dirs, files in os.walk(dir):
+          for file in files:
+            path = os.path.join(subdir, file)
+            
+            # Записываем доп. файл.
+            zip.write(path)
+            
+            # Лог для юзера.
+            print(f"  + Add additional file: {path}")
+            
+elif args.command == "bundle":
+  with open("project.json", "r") as project:
+    # Читаем содержимое project.json
+    content = json.load(project)
+    
+    # Создаём директорию.    
+    try:
+      os.mkdir(utility.get_distribute_path(content))
+    except:
+      pass # Директория уже создана, пропускаем.
+    
+    # Получим директорию исходников.
+    source_path = utility.get_source_path(content)
+    
+    # Получим init.lua
+    init_path = os.path.join(source_path, "init.lua")
+    
+    # Создадим корневой файл.
+    with open(utility.get_distribute_core_path(content), "w") as core:
+      # Напишем копирайты (хехе).
+      core.write("-- Bundled using <moonly>\n")
+      core.write("-- Get moonly at <https://github.com/themusaigen/moonly>\n\n")
+      
+      # Проходимся по сурсам.
+      bundler.traverse_path_to_bundle(core, content, source_path)
+      
+      # Проходимся по доп. папкам.
+      for path in utility.get_additional_dirs(content):
+        bundler.traverse_path_to_bundle(core, content, utility.convert_backslashes(path))
+      
+      # Добавляем корневой файл.
+      with open(init_path, "r") as init_file:
+        core.write("-- Core file <init.lua>\n")
+        
+        core.write(init_file.read())
+        
+        print(" + Bundled init.lua")
+            
+        
