@@ -11,6 +11,13 @@ subparsers = parser.add_subparsers(dest='command', title="Usage")
 
 # Команда "init"
 parser_init = subparsers.add_parser('init', help='Initializes new moonly project')
+parser_init.add_argument('-n', '--name', default="my-project", help="Specify name of the new project.")
+parser_init.add_argument('-s', '--sourcedir', default='src', help="Specify the source directory of the new project.")
+parser_init.add_argument('-l', '--libdir', default='lib', help="Specfiy the library directory of the new project.")
+parser_init.add_argument('-b', '--builddir', default="dist", help="Specify the directory used for build command output.")
+parser_init.add_argument('-d', '--distdir', default="dist", help="Specify the directory used for bundle command output.")
+parser_init.add_argument('-vs', '--vscode', action="store_true", help="Automatically create .vscode/settings.json.")
+parser_init.add_argument("-dirs", "--create-dirs", action="store_true", help="Automatically create main directories.")
 
 # Команда "build"
 parser_build = subparsers.add_parser("build", help="Builds moonloader archive from moonly project")
@@ -22,16 +29,20 @@ parser_bundle = subparsers.add_parser("bundle", help="Bundles all moonly project
 args = parser.parse_args()
 
 if args.command == "init":
+  args = parser.parse_args()
+  
+  print(args)
+  
   content = {
-    "name": "my-project",
-    "library": "lib",
-    "source": "src",
+    "name": args.name,
+    "library": args.libdir,
+    "source": args.sourcedir,
     "build": {
-      "output": "dist",
+      "output": args.builddir,
       "additionalDirs": []
     },
     "distribute": {
-      "output": "dist",
+      "output": args.distdir,
       "additionalDirs": [],
       "ignoredDirs": [],
     }
@@ -39,8 +50,55 @@ if args.command == "init":
   
   with open("project.json", "w") as project:
     project.write(json.dumps(content, indent=2))
+  
+  if args.vscode:
+    # Создадим папку .vscode
+    try:
+      os.mkdir(".vscode")
+    except:
+      pass
     
-  print("initialized default project")
+    sumneko = {
+      "[lua]": {
+        "editor.defaultFormatter": "sumneko.lua",
+        "files.encoding": "windows1251"
+      },
+      "Lua.runtime.version": "LuaJIT",
+      "Lua.runtime.path": [
+        f"{args.sourcedir}/?.lua",
+        f"{args.sourcedir}/?/init.lua",
+        f"{args.libdir}/?.lua",
+        f"{args.libdir}/?/init.lua"
+      ],
+      "Lua.diagnostics.globals": [
+        "main"
+      ]
+    }
+    
+    # Создадим файл с настройками и запушим default настройки.
+    with open(".vscode/settings.json", "w") as settings:
+      settings.write(json.dumps(sumneko, indent=2))
+  
+  # Авто-создание основных директорий.
+  if args.create_dirs:
+    try:
+      os.mkdir(args.sourcedir)
+    except:
+      pass
+    
+    try:
+      os.mkdir(args.libdir)
+    except:
+      pass
+  
+  print("= Initialized project.")
+  print(f"  = Name: {args.name}")
+  print(f"  = Source directory: {args.sourcedir}")
+  print(f"  = Libraries directory: {args.libdir}")
+  print(f"  = Build directory: {args.builddir}")
+  print(f"  = Distribute directory: {args.distdir}")
+  print(f"  = Visual Studio Code settings: {args.vscode and "Yes" or "No"}")
+  print(f"  = Auto-create main directories: {args.create_dirs and "Yes" or "No"}")
 elif args.command == "build":
   with open("project.json", "r") as project:
     # Читаем содержимое project.json
