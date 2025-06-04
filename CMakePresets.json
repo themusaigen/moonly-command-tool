@@ -1,0 +1,47 @@
+{
+  "version": 8,
+  "configurePresets": [
+    {
+      "name": "ninja-default",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build",
+      "installDir": "${sourceDir}/install"
+    },
+    {
+      "name": "ninja-clang",
+      "hidden": true,
+      "inherits": "ninja-default",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++"
+      }
+    },
+    {
+      "name": "ninja-clang-debug",
+      "displayName": "Clang (Debug)",
+      "inherits": "ninja-clang",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "ninja-clang-release",
+      "displayName": "Clang (Release)",
+      "inherits": "ninja-clang",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "build-clang-debug",
+      "configurePreset": "ninja-clang-debug"
+    },
+    {
+      "name": "build-clang-release",
+      "configurePreset": "ninja-clang-release"
+    }
+  ]
+}

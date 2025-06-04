@@ -1,0 +1,8 @@
+CompileFlags:
+  CompilationDatabase: build
+  Add: [-Wall,
+    -Wextra,
+    -Wno-c++98-compat,
+    -Wno-c++98-compat-pedantic,
+    -Wno-unused-function,
+    -Wno-unused-template]
