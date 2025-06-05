@@ -24,7 +24,7 @@ public:
   /// @param path The path to the file.
   /// @return A vector of uint8_t containing the file data, or empty on failure.
   [[nodiscard]] static auto read_file_as_binary(const fs::path& path) noexcept
-      -> std::vector<std::uint8_t>;
+      -> std::vector<std::vector<std::uint8_t>>;
 
   /// @brief Removes the root directory from a given path.
   ///

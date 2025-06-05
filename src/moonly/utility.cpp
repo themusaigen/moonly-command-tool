@@ -20,7 +20,9 @@ auto utility::read_file(const fs::path& path) noexcept -> std::string {
 }
 
 auto utility::read_file_as_binary(const fs::path& path) noexcept
-    -> std::vector<std::uint8_t> {
+    -> std::vector<std::vector<std::uint8_t>> {
+  constexpr auto kChunkSize = 64ULL * 1024ULL; // 64Kbyte
+
   if (!fs::exists(path)) {
     return {};
   }
@@ -33,10 +35,22 @@ auto utility::read_file_as_binary(const fs::path& path) noexcept
   const auto size = file.tellg();
   file.seekg(0, std::ios::beg);
 
-  std::vector<std::uint8_t> buffer(size);
-  file.read(reinterpret_cast<char*>(buffer.data()), size);
+  std::vector<std::uint8_t>              buffer(size);
+  std::vector<std::vector<std::uint8_t>> chunks;
 
-  return buffer;
+  while (file.tellg() < size) {
+    size_t bytes_to_read =
+        std::min(kChunkSize,
+                 static_cast<size_t>(size) - static_cast<size_t>(file.tellg()));
+    file.read(reinterpret_cast<char*>(buffer.data()), bytes_to_read);
+    if (!file) {
+      break;
+    }
+
+    chunks.emplace_back(buffer.begin(), buffer.begin() + file.gcount());
+  }
+
+  return chunks;
 }
 
 auto utility::remove_root_directory(const fs::path& path) noexcept -> fs::path {

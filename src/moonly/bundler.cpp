@@ -163,9 +163,29 @@ void bundler::add_text_file(const std::filesystem::path& file) noexcept {
     return;
   }
 
-  const fs::path path = "moonloader" / file;
-
   console::output(" -> Bundled text file '{}'.\n", file.string());
+
+  // Validate directories
+  auto directories = utility::split(file.generic_string(), "/");
+  if (!directories.empty()) {
+    fs::path dir = "moonloader";
+    for (const auto& directory : directories) {
+      dir /= directory;
+
+      print("if not doesDirectoryExist(\"{}\") then", dir.generic_string());
+      new_line();
+      indent(2);
+      print("createDirectory(\"{}\")", dir.generic_string());
+      unindent(2);
+      new_line();
+      print("end");
+      new_line();
+      new_line();
+    }
+  }
+
+  // Validate file.
+  const fs::path path = "moonloader" / file;
 
   print("-- Text File <{}> ({})", file.filename().string(), file.string());
   new_line();
@@ -190,6 +210,8 @@ void bundler::add_text_file(const std::filesystem::path& file) noexcept {
   print_no_indent("]])");
 
   new_line();
+  print("file:flush()");
+  new_line();
   print("file:close()");
   new_line();
   unindent(2);
@@ -199,43 +221,41 @@ void bundler::add_text_file(const std::filesystem::path& file) noexcept {
 }
 
 void bundler::add_binary(const std::filesystem::path& file) noexcept {
-  auto binary = utility::read_file_as_binary(file);
-  if (binary.empty()) {
+  auto chunks = utility::read_file_as_binary(file);
+  if (chunks.empty()) {
     return;
   }
-
-  const fs::path path = "moonloader" / file;
 
   console::output(" -> Bundled binary file '{}'.\n", file.string());
 
   print("-- Binary File <{}> ({})", file.filename().string(), file.string());
   new_line();
 
-  print("if not doesFileExist(\"{}\") then", path.generic_string());
-  new_line();
-  indent(2);
+  // Validate directories
+  auto directories = utility::split(file.generic_string(), "/");
+  if (!directories.empty()) {
+    fs::path dir = "moonloader";
+    for (const auto& directory : directories) {
+      dir /= directory;
 
-  print("local binary_data = {");
-  new_line();
-  indent(2);
-
-  constexpr auto kBytesInRow = 8;
-  for (std::size_t i = 0; i < binary.size(); ++i) {
-    if (i % kBytesInRow == 0 && i > 0) {
+      print("if not doesDirectoryExist(\"{}\") then", dir.generic_string());
       new_line();
-    }
-
-    if (i % kBytesInRow == kBytesInRow) {
-      print_no_indent("0x{:X}, ", static_cast<int>(binary[i]));
-    } else {
-      print("0x{:X}, ", static_cast<int>(binary[i]));
+      indent(2);
+      print("createDirectory(\"{}\")", dir.generic_string());
+      unindent(2);
+      new_line();
+      print("end");
+      new_line();
+      new_line();
     }
   }
 
-  unindent(2);
+  // Validate file.
+  const fs::path path = "moonloader" / file;
+
+  print("if not doesFileExist(\"{}\") then", path.generic_string());
   new_line();
-  print("}");
-  new_line();
+  indent(2);
 
   print(R"(local file = io.open("{}", "w+b"))", path.generic_string());
   new_line();
@@ -249,9 +269,36 @@ void bundler::add_binary(const std::filesystem::path& file) noexcept {
   new_line();
   new_line();
 
+  constexpr auto kBytesInRow = 8ULL;
+  for (std::size_t chunk = 0; chunk < chunks.size(); chunk++) {
+    print("local chunk");
+    print_no_indent(std::to_string(chunk));
+    print_no_indent(" = {");
+    new_line();
+    indent(2);
+
+    for (std::size_t byte = 0; byte < chunks[chunk].size(); byte++) {
+      if (byte % kBytesInRow == 0 && byte > 0) {
+        new_line();
+        print("");
+      }
+
+      print_no_indent("0x{:02X}, ", static_cast<int>(chunks[chunk][byte]));
+    }
+
+    unindent(2);
+    new_line();
+    print("}");
+    new_line();
+  }
+
+  new_line();
+  print("local function write_chunk(file, chunk)");
+  new_line();
+  indent(2);
   print("local buffer = \"\"");
   new_line();
-  print("for _, byte in ipairs(binary_data) do");
+  print("for _, byte in ipairs(chunk) do");
   new_line();
   indent(2);
   print("buffer = buffer .. string.char(byte)");
@@ -259,9 +306,20 @@ void bundler::add_binary(const std::filesystem::path& file) noexcept {
   unindent(2);
   print("end");
   new_line();
+  print("file:write(buffer)");
+  new_line();
+  unindent(2);
+  print("end");
+  new_line();
   new_line();
 
-  print("file:write(buffer)");
+  for (std::size_t chunk = 0; chunk < chunks.size(); chunk++) {
+    print("write_chunk(file, chunk{})", chunk);
+    new_line();
+  }
+
+  new_line();
+  print("file:flush()");
   new_line();
   print("file:close()");
   new_line();
@@ -276,7 +334,8 @@ auto bundler::data() const noexcept -> std::string {
 }
 
 void bundler::print_file(const std::string& data) {
-  for (const auto& line : utility::split(data, "\n")) {
+  // Little trick to enforce printing newline.
+  for (const auto& line : utility::split(data + '\n', "\n")) {
     print(line);
     new_line();
   }

@@ -11,7 +11,7 @@ extern void process_pack_command(ArgumentParser& parser);
 extern void process_bundle_command(ArgumentParser& parser);
 
 auto main(int argc, char** argv) -> int {
-  ArgumentParser program("moonly", "2.0.0");
+  ArgumentParser program("moonly", "2.1.0");
 
   // 'init' command.
   ArgumentParser init_command("init");
