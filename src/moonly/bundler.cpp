@@ -52,8 +52,7 @@ void bundler::constant_propagation() noexcept {
   }
 }
 
-void bundler::add_scripts(const fs::path&                directory,
-                          const std::optional<fs::path>& ignored) noexcept {
+void bundler::add_scripts(const fs::path& directory) noexcept {
   if (!fs::exists(directory)) {
     return;
   }
@@ -61,7 +60,8 @@ void bundler::add_scripts(const fs::path&                directory,
   console::output("-> Collecting scripts from '{}' directory.\n",
                   directory.string());
 
-  auto project = configuration::get();
+  auto project     = configuration::get();
+  auto core_script = project.core_script_path();
 
   for (const auto& entry : fs::recursive_directory_iterator{directory}) {
     if (entry.is_directory() || project.is_path_ignored(entry)) {
@@ -72,7 +72,7 @@ void bundler::add_scripts(const fs::path&                directory,
       continue;
     }
 
-    if (entry.path() == ignored) {
+    if (entry.path() == core_script) {
       continue;
     }
 

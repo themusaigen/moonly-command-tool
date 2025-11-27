@@ -35,7 +35,7 @@ void bundle_command::process(
   bundler bundler;
   bundler.add_header();
   bundler.constant_propagation();
-  bundler.add_scripts(source_dir, project.core_script_path());
+  bundler.add_scripts(source_dir);
 
   for (const auto& dir : project.distribute_additional_directories()) {
     bundler.add_resources(dir);

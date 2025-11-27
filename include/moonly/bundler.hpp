@@ -24,12 +24,10 @@ public:
   /// @brief Performs constant propagation from configuration.
   void constant_propagation() noexcept;
 
-  /// @brief Adds all scripts in a directory (excluding optional ignored one).
+  /// @brief Adds all scripts in a directory.
   ///
   /// @param directory The source directory.
-  /// @param ignored Optional path to ignore.
-  void add_scripts(const fs::path&                directory,
-                   const std::optional<fs::path>& ignored) noexcept;
+  void add_scripts(const fs::path& directory) noexcept;
 
   /// @brief Adds a single script to the bundle.
   ///

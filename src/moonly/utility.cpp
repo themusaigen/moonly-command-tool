@@ -16,7 +16,29 @@ auto utility::read_file(const fs::path& path) noexcept -> std::string {
     return {};
   }
 
-  return {std::istreambuf_iterator<char>(file), {}};
+  std::string line;
+  std::string text;
+  bool        skip{false};
+  while (std::getline(file, line)) {
+    if (line == "-- moonly bundle start") {
+      if (skip) {
+        skip = false;
+        continue;
+      }
+    }
+
+    if (skip) {
+      continue;
+    }
+
+    if (line == "-- moonly bundle stop") {
+      skip = true;
+    } else {
+      text += line += '\n';
+    }
+  }
+
+  return text;
 }
 
 auto utility::read_file_as_binary(const fs::path& path) noexcept

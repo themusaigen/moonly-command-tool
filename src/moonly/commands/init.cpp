@@ -76,7 +76,7 @@ void initialize_command::process(argparse::ArgumentParser& command) noexcept {
             std::format("{}/?/init.lua", source),
             std::format("{}/?.lua", library),
             std::format("{}/?/init.lua", library)}                          },
-          {"Lua.diagnostics.global",
+          {"Lua.diagnostics.globals",
            {"main",
             "onExitScript",
             "onQuitGame",
