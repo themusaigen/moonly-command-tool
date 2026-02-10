@@ -1,5 +1,6 @@
 #include <moonly/utility.hpp>
 
+#include <algorithm>
 #include <array>
 #include <fstream>
 
@@ -61,9 +62,9 @@ auto utility::read_file_as_binary(const fs::path& path) noexcept
   std::vector<std::vector<std::uint8_t>> chunks;
 
   while (file.tellg() < size) {
-    size_t bytes_to_read =
-        std::min(kChunkSize,
-                 static_cast<size_t>(size) - static_cast<size_t>(file.tellg()));
+    size_t bytes_to_read = std::min<decltype(kChunkSize)>(
+        kChunkSize,
+        static_cast<size_t>(size) - static_cast<size_t>(file.tellg()));
     file.read(reinterpret_cast<char*>(buffer.data()), bytes_to_read);
     if (!file) {
       break;
