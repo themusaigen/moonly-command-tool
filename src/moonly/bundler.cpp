@@ -204,11 +204,7 @@ void bundler::add_text_file(const std::filesystem::path& file) noexcept {
   unindent(2);
   print("end");
   new_line();
-
-  print("file:write([[");
-  print_no_indent(text);
-  print_no_indent("]])");
-
+  print_file_writing(text);
   new_line();
   print("file:flush()");
   new_line();
@@ -339,6 +335,41 @@ void bundler::print_file(const std::string& data) {
     print(line);
     new_line();
   }
+}
+
+void bundler::print_file_writing(const std::string& content) {
+  std::size_t length            = content.length();
+  std::size_t long_string_level = 0;
+  std::size_t index             = 0;
+
+  while (index < length) {
+    if (content[index] != ']') {
+      index++;
+      continue;
+    }
+
+    std::size_t new_long_string_level = 1;
+
+    index++;
+
+    while (index < length && content[index] == '=') {
+      new_long_string_level++;
+      index++;
+    }
+
+    if (index > length || content[index] != ']' ||
+        new_long_string_level < long_string_level) {
+      continue;
+    }
+
+    long_string_level = new_long_string_level;
+  }
+
+  auto long_string_level_str = std::string(long_string_level, '=');
+
+  print("file:write([{}[", long_string_level_str);
+  print_no_indent(content);
+  print_no_indent("]{}])", long_string_level_str);
 }
 
 void bundler::new_line() noexcept {
