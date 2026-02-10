@@ -69,6 +69,7 @@ private:
   void unindent(std::size_t level = 1) noexcept;
 
   void print_file(const std::string& data);
+  void print_file_writing(const std::string& content);
   void new_line() noexcept;
 
   void print_no_indent(const std::string& text) {
