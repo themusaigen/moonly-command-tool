@@ -48,24 +48,6 @@ public:
   /// @return Output directory name or "dist" if not specified.
   [[nodiscard]] auto distribute_directory_name() const noexcept -> std::string;
 
-  /// @brief Gets additional directories to include during distribution.
-  ///
-  /// @return Vector of strings containing additional directories.
-  [[nodiscard]] auto distribute_additional_directories() const noexcept
-      -> std::vector<std::string>;
-
-  /// @brief Gets directories to ignore during distribution.
-  ///
-  /// @return Vector of strings containing ignored directories.
-  [[nodiscard]] auto distribute_ignored_directories() const noexcept
-      -> std::vector<std::string>;
-
-  /// @brief Gets additional files to include during distribution.
-  ///
-  /// @return Vector of strings containing additional files.
-  [[nodiscard]] auto distribute_additional_files() const noexcept
-      -> std::vector<std::string>;
-
   /// @brief Gets constants to inject during distribution.
   ///
   /// @return Map of constant names to values.
@@ -79,6 +61,12 @@ public:
   /// @return True if the path is ignored, false otherwise.
   [[nodiscard]] auto is_path_ignored(const fs::path& path) const noexcept
       -> bool;
+
+  [[nodiscard]] auto include_patterns() const noexcept
+      -> std::vector<std::string>;
+
+  [[nodiscard]] auto exclude_patterns() const noexcept
+      -> std::vector<std::string>;
 
   /// @brief Loads and parses the configuration from "project.json".
   ///

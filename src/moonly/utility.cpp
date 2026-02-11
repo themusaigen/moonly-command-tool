@@ -1,4 +1,5 @@
 #include <moonly/utility.hpp>
+#include <moonly/base64.hpp>
 
 #include <algorithm>
 #include <array>
@@ -40,6 +41,51 @@ auto utility::read_file(const fs::path& path) noexcept -> std::string {
   }
 
   return text;
+}
+
+auto utility::convert_backslashes(std::string str) noexcept -> std::string {
+  size_t pos{};
+  while ((pos = str.find('/')) != std::string::npos) {
+    str.replace(pos, 1, "\\");
+  }
+  return str;
+};
+
+auto utility::read_binary_as_base64(const fs::path& path) noexcept
+    -> std::vector<std::string> {
+  constexpr auto kRawChunkSize    = 65536ULL;
+  constexpr auto kBase64ChunkSize = 2048;
+
+  std::ifstream file(path, std::ios::binary | std::ios::ate);
+  if (!file.is_open()) {
+    return {};
+  }
+
+  std::vector<std::string>  chunks;
+  std::vector<std::uint8_t> raw(kRawChunkSize);
+
+  const auto size = file.tellg();
+  file.seekg(0, std::ios::beg);
+
+  while (file.tellg() < size) {
+    size_t bytes_to_read = std::min<decltype(kRawChunkSize)>(
+        kRawChunkSize,
+        static_cast<size_t>(size) - static_cast<size_t>(file.tellg()));
+    // NOLINTBEGIN(*-reinterpret-cast)
+    file.read(reinterpret_cast<char*>(raw.data()),
+              static_cast<std::streamsize>(bytes_to_read));
+    // NOLINTEND(*-reinterpret-cast)
+    if (!file) {
+      break;
+    }
+
+    std::string base64 = base64::encode(raw, bytes_to_read);
+    for (size_t i = 0; i < base64.size(); i += kBase64ChunkSize) {
+      chunks.push_back(base64.substr(i, kBase64ChunkSize));
+    }
+  }
+
+  return chunks;
 }
 
 auto utility::read_file_as_binary(const fs::path& path) noexcept

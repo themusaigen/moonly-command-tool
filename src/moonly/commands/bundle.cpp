@@ -1,6 +1,9 @@
 #include <moonly/commands/bundle.hpp>
 #include <moonly/configuration.hpp>
 #include <moonly/bundler.hpp>
+#include <moonly/utility.hpp>
+#include <moonly/console.hpp>
+#include <glob.hpp>
 
 #include <filesystem>
 #include <fstream>
@@ -37,14 +40,31 @@ void bundle_command::process(
   bundler.constant_propagation();
   bundler.add_scripts(source_dir);
 
-  for (const auto& dir : project.distribute_additional_directories()) {
-    bundler.add_resources(dir);
+  // Preparing for collecting resources.
+  std::vector<fs::path> resources;
+
+  console::output("-> Collecting resources...\n");
+
+  // Globing files that matches user's include patterns.
+  for (const auto& path : glob::rglob(project.include_patterns())) {
+    if (!fs::is_directory(path)) {
+      resources.push_back(path);
+    }
   }
 
-  for (const auto& file : project.distribute_additional_files()) {
-    bundler.add_resource(file);
+  // Removing files that matches exclude patterns.
+  for (const auto& pattern : project.exclude_patterns()) {
+    std::erase_if(resources, [&pattern](const auto& resource) {
+      return glob::matches(resource, utility::convert_backslashes(pattern));
+    });
   }
 
+  // Add resource.
+  for (const auto& resource : resources) {
+    bundler.add_resource(resource);
+  }
+
+  bundler.add_fodder();
   bundler.add_core_file(project.core_script_path());
 
   file << bundler.data();

@@ -28,9 +28,8 @@ void initialize_command::process(argparse::ArgumentParser& command) noexcept {
       {"library",    library                                                 },
       {"distribute",
        {{"output", dist},
-        {"additionalDirs", json::array()},
-        {"ignoredDirs", json::array()},
-        {"additionalFiles", json::array()},
+        {"include", json::array()},
+        {"exclude", json::array()},
         {"constants",
          {{"MOONLY_BUNDLED", true}, {"MOONLY_BUNDLE_TIMESTAMP", "<$date>"}}}}}
   };
@@ -69,13 +68,13 @@ void initialize_command::process(argparse::ArgumentParser& command) noexcept {
       json settings{
           {"[lua]",
            {{"editor.defaultFormatter", "sumneko.lua"},
-            {"files.encoding", "windows1251"}}                              },
-          {"Lua.runtime.version",    "LuaJIT"                               },
+            {"files.encoding", "windows1251"}}                               },
+          {"Lua.runtime.version",     "LuaJIT"                               },
           {"Lua.runtime.path",
            {std::format("{}/?.lua", source),
             std::format("{}/?/init.lua", source),
             std::format("{}/?.lua", library),
-            std::format("{}/?/init.lua", library)}                          },
+            std::format("{}/?/init.lua", library)}                           },
           {"Lua.diagnostics.globals",
            {"main",
             "onExitScript",
@@ -91,8 +90,8 @@ void initialize_command::process(argparse::ArgumentParser& command) noexcept {
             "onWindowMessage",
             "onStartNewGame",
             "onLoadGame",
-            "onSaveGame"}                                                   },
-          {"Lua.workspace.library",  {"${addons}/moonloader/module/library"}}
+            "onSaveGame"}                                                    },
+          {"Lua.workspace.library",   {"${addons}/moonloader/module/library"}}
       };
 
       std::ofstream vscode_file(".vscode/settings.json");

@@ -18,7 +18,71 @@ void bundler::add_header() noexcept {
         "<github.com/themusaigen/moonly-command-tool>\n");
   print("-- Get Moonly from <github.com/themusaigen/moonly>\n\n");
 
+  print("local _moonly_b64charset = (function()\n");
+  indent(2);
+  {
+    print("local t = {}\n");
+    print("for i = 0, 255 do t[i] = -1 end\n");
+    print("local chars = "
+          "\"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+          "\"\n");
+    print("for i = 1, #chars do t[string.byte(chars, i)] = i - 1 end\n");
+    print("t[string.byte('=')] = -2\n");
+    print("return t\n");
+  }
+  unindent(2);
+  print("end)()\n\n");
+
+  print("local function _moonly_b64decode(str)\n");
+  indent(2);
+  {
+    print("local result = {}\n");
+    print("local bits = 0\n");
+    print("local buffer = 0\n\n");
+
+    print("for i = 1, #str do\n");
+    indent(2);
+    {
+      print("local c = _moonly_b64charset[str:byte(i)]\n");
+      print("if c == -1 then\n");
+      indent(2);
+      { print("error(\"moonly: unknown base64 character\")\n"); }
+      unindent(2);
+      print("elseif c ~= -2 then\n");
+      indent(2);
+      {
+        print("buffer = bit.bor(bit.lshift(buffer, 6), c)\n");
+        print("bits = bits + 6\n\n");
+
+        print("while bits >= 8 do\n");
+        indent(2);
+        {
+          print("bits = bits - 8\n");
+          print("result[#result + 1] = string.char(bit.band(bit.rshift(buffer, "
+                "bits), 0xFF))\n");
+        }
+        unindent(2);
+        print("end\n");
+      }
+      unindent(2);
+      print("end\n");
+    }
+    unindent(2);
+    print("end\n\n");
+
+    print("return table.concat(result)\n");
+  }
+  unindent(2);
+  print("end\n\n");
+
   console::output("-> Added file header.\n");
+}
+
+void bundler::add_fodder() noexcept {
+  print("_moonly_b64charset = nil\n");
+  print("_moonly_b64decode = nil\n\n");
+
+  console::output("-> Added file fodder.\n");
 }
 
 void bundler::constant_propagation() noexcept {
@@ -42,6 +106,8 @@ void bundler::constant_propagation() noexcept {
             duration_cast<milliseconds>(system_clock::now().time_since_epoch())
                 .count());
       }
+    } else if (value.is_null()) {
+      data = "nil";
     }
 
     print("{} = {}\n", key, data);
@@ -64,17 +130,14 @@ void bundler::add_scripts(const fs::path& directory) noexcept {
   auto core_script = project.core_script_path();
 
   for (const auto& entry : fs::recursive_directory_iterator{directory}) {
-    if (entry.is_directory() || project.is_path_ignored(entry)) {
+    // clang-format off
+    if (entry.is_directory() ||
+        entry.path() == core_script ||
+        entry.path().extension() != ".lua" ||
+        project.is_path_ignored(entry.path())) {
       continue;
     }
-
-    if (entry.path().extension() != ".lua") {
-      continue;
-    }
-
-    if (entry.path() == core_script) {
-      continue;
-    }
+    // clang-format on
 
     add_script(entry.path());
   }
@@ -217,7 +280,7 @@ void bundler::add_text_file(const std::filesystem::path& file) noexcept {
 }
 
 void bundler::add_binary(const std::filesystem::path& file) noexcept {
-  auto chunks = utility::read_file_as_binary(file);
+  auto chunks = utility::read_binary_as_base64(file);
   if (chunks.empty()) {
     return;
   }
@@ -265,54 +328,74 @@ void bundler::add_binary(const std::filesystem::path& file) noexcept {
   new_line();
   new_line();
 
-  constexpr auto kBytesInRow = 8ULL;
-  for (std::size_t chunk = 0; chunk < chunks.size(); chunk++) {
-    print("local chunk");
-    print_no_indent(std::to_string(chunk));
-    print_no_indent(" = {");
-    new_line();
-    indent(2);
+  print("local chunks = {\n");
 
-    for (std::size_t byte = 0; byte < chunks[chunk].size(); byte++) {
-      if (byte % kBytesInRow == 0 && byte > 0) {
-        new_line();
-        print("");
-      }
+  indent(2);
+  for (std::size_t i = 0; i < chunks.size(); i++) {
+    print("\"{}\"", chunks[i]);
 
-      print_no_indent("0x{:02X}, ", static_cast<int>(chunks[chunk][byte]));
+    if (i < chunks.size() - 1) {
+      print_no_indent(",\n");
     }
-
-    unindent(2);
-    new_line();
-    print("}");
-    new_line();
   }
-
-  new_line();
-  print("local function write_chunk(file, chunk)");
-  new_line();
-  indent(2);
-  print("local buffer = \"\"");
-  new_line();
-  print("for _, byte in ipairs(chunk) do");
-  new_line();
-  indent(2);
-  print("buffer = buffer .. string.char(byte)");
-  new_line();
   unindent(2);
-  print("end");
   new_line();
-  print("file:write(buffer)");
-  new_line();
-  unindent(2);
-  print("end");
-  new_line();
-  new_line();
+  print("}\n\n");
 
-  for (std::size_t chunk = 0; chunk < chunks.size(); chunk++) {
-    print("write_chunk(file, chunk{})", chunk);
-    new_line();
-  }
+  print("for _, chunk in ipairs(chunks) do\n");
+  indent(2);
+  print("file:write(_moonly_b64decode(chunk))\n");
+  unindent(2);
+  print("end\n\n");
+
+  // constexpr auto kBytesInRow = 8ULL;
+  // for (std::size_t chunk = 0; chunk < chunks.size(); chunk++) {
+  //   print("local chunk");
+  //   print_no_indent(std::to_string(chunk));
+  //   print_no_indent(" = {");
+  //   new_line();
+  //   indent(2);
+
+  //   for (std::size_t byte = 0; byte < chunks[chunk].size(); byte++) {
+  //     if (byte % kBytesInRow == 0 && byte > 0) {
+  //       new_line();
+  //       print("");
+  //     }
+
+  //     print_no_indent("0x{:02X}, ", static_cast<int>(chunks[chunk][byte]));
+  //   }
+
+  //   unindent(2);
+  //   new_line();
+  //   print("}");
+  //   new_line();
+  // }
+
+  // new_line();
+  // print("local function write_chunk(file, chunk)");
+  // new_line();
+  // indent(2);
+  // print("local buffer = \"\"");
+  // new_line();
+  // print("for _, byte in ipairs(chunk) do");
+  // new_line();
+  // indent(2);
+  // print("buffer = buffer .. string.char(byte)");
+  // new_line();
+  // unindent(2);
+  // print("end");
+  // new_line();
+  // print("file:write(buffer)");
+  // new_line();
+  // unindent(2);
+  // print("end");
+  // new_line();
+  // new_line();
+
+  // for (std::size_t chunk = 0; chunk < chunks.size(); chunk++) {
+  //   print("write_chunk(file, chunk{})", chunk);
+  //   new_line();
+  // }
 
   new_line();
   print("file:flush()");

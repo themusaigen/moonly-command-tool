@@ -7,7 +7,7 @@
 using namespace argparse;
 
 auto main(int argc, char** argv) -> int {
-  ArgumentParser program("moonly", "2.2.0");
+  ArgumentParser program("moonly", "3.0.0-preview-1");
 
   // 'init' command.
   ArgumentParser init_command("init");

@@ -1,4 +1,6 @@
 #include <moonly/configuration.hpp>
+#include <moonly/utility.hpp>
+#include <glob.hpp>
 
 #include <utility>
 #include <fstream>
@@ -39,43 +41,30 @@ auto configuration::distribute_directory_name() const noexcept -> std::string {
   return m_object["distribute"]["output"];
 }
 
-auto configuration::distribute_additional_directories() const noexcept
+auto configuration::include_patterns() const noexcept
     -> std::vector<std::string> {
   if (!m_object.contains("distribute")) {
     return {};
   }
 
-  if (!m_object["distribute"].contains("additionalDirs")) {
+  if (!m_object["distribute"].contains("include")) {
     return {};
   }
 
-  return m_object["distribute"]["additionalDirs"];
+  return m_object["distribute"]["include"];
 }
 
-auto configuration::distribute_ignored_directories() const noexcept
+auto configuration::exclude_patterns() const noexcept
     -> std::vector<std::string> {
   if (!m_object.contains("distribute")) {
     return {};
   }
 
-  if (!m_object["distribute"].contains("ignoredDirs")) {
+  if (!m_object["distribute"].contains("exclude")) {
     return {};
   }
 
-  return m_object["distribute"]["ignoredDirs"];
-}
-
-auto configuration::distribute_additional_files() const noexcept
-    -> std::vector<std::string> {
-  if (!m_object.contains("distribute")) {
-    return {};
-  }
-
-  if (!m_object["distribute"].contains("additionalFiles")) {
-    return {};
-  }
-
-  return m_object["distribute"]["additionalFiles"];
+  return m_object["distribute"]["exclude"];
 }
 
 auto configuration::distribute_constants() const noexcept
@@ -93,19 +82,9 @@ auto configuration::distribute_constants() const noexcept
 
 auto configuration::is_path_ignored(
     const std::filesystem::path& path) const noexcept -> bool {
-  auto convert_backslashes = [](std::string str) {
-    size_t pos{};
-    while ((pos = str.find('/')) != std::string::npos) {
-      str.replace(pos, 1, "\\");
-    }
-    return str;
-  };
-
-  return std::ranges::any_of(distribute_ignored_directories(),
-                             [&path, &convert_backslashes](const auto& dir) {
-                               return path.string().contains(
-                                   convert_backslashes(dir));
-                             });
+  return std::ranges::any_of(exclude_patterns(), [&path](const auto& pattern) {
+    return glob::matches(path, utility::convert_backslashes(pattern));
+  });
 }
 
 auto configuration::get() noexcept -> configuration {

@@ -26,6 +26,9 @@ public:
   [[nodiscard]] static auto read_file_as_binary(const fs::path& path) noexcept
       -> std::vector<std::vector<std::uint8_t>>;
 
+  [[nodiscard]] static auto read_binary_as_base64(const fs::path& path) noexcept
+      -> std::vector<std::string>;
+
   /// @brief Removes the root directory from a given path.
   ///
   /// @param path The full path.
@@ -40,6 +43,9 @@ public:
   /// @return A vector of substrings.
   [[nodiscard]] static auto split(std::string str, const std::string& delimiter)
       -> std::vector<std::string>;
+
+  [[nodiscard]] static auto convert_backslashes(std::string str) noexcept
+      -> std::string;
 
   /// @brief Joins a vector of strings using a delimiter.
   ///

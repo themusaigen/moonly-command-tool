@@ -3,7 +3,6 @@
 #include <format>
 #include <sstream>
 #include <filesystem>
-#include <optional>
 
 namespace fs = std::filesystem;
 
@@ -20,6 +19,9 @@ private:
 public:
   /// @brief Adds a standard header to the output.
   void add_header() noexcept;
+
+  /// @brief Adds a standard fodder to the output.
+  void add_fodder() noexcept;
 
   /// @brief Performs constant propagation from configuration.
   void constant_propagation() noexcept;

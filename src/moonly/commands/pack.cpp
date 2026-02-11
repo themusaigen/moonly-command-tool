@@ -2,6 +2,7 @@
 #include <moonly/configuration.hpp>
 #include <moonly/console.hpp>
 #include <moonly/utility.hpp>
+#include <glob.hpp>
 
 #include <argparse/argparse.hpp>
 #include <nlohmann/json.hpp>
@@ -48,11 +49,11 @@ void pack_command::process(
   console::output("--> Opened '{}' ZIP file.\n", zip_path);
 
   // Add core init.lua as first entry
-  const auto init_path = source_dir + "/init.lua";
-  if (fs::exists(init_path)) {
+  const auto core_script_path = source_dir + "/init.lua";
+  if (fs::exists(core_script_path)) {
     const auto entry_name = std::format("{}-init.lua", name);
     zip_entry_open(zip, entry_name.c_str());
-    zip_entry_fwrite(zip, init_path.c_str());
+    zip_entry_fwrite(zip, core_script_path.c_str());
     zip_entry_close(zip);
 
     console::output("--> Packed '{}'.\n", entry_name);
@@ -62,9 +63,13 @@ void pack_command::process(
 
   // Add all other Lua scripts from source directory
   for (const auto& entry : fs::recursive_directory_iterator{source_dir}) {
-    if (entry.path() == init_path || entry.is_directory()) {
+    // clang-format off
+    if (entry.is_directory() ||
+        entry.path() == core_script_path ||
+        project.is_path_ignored(entry.path())) {
       continue;
     }
+    // clang-format on
 
     const auto rel_path = utility::remove_root_directory(entry.path());
     const auto ext      = entry.path().extension().string();
@@ -80,38 +85,30 @@ void pack_command::process(
     zip_entry_close(zip);
   }
 
-  // Add additional directories
-  for (const auto& dir : project.distribute_additional_directories()) {
-    if (!fs::exists(dir)) {
-      continue;
-    }
+  console::output("--> Collecting resources.\n");
 
-    console::output("--> Collecting additional directory: {}.\n", dir);
+  std::vector<fs::path> resources;
 
-    for (const auto& entry : fs::recursive_directory_iterator{dir}) {
-      if (entry.is_directory() || project.is_path_ignored(entry.path())) {
-        continue;
-      }
-
-      console::output(" --> Packed additional file: {}.\n",
-                      entry.path().string());
-
-      zip_entry_open(zip, entry.path().string().c_str());
-      zip_entry_fwrite(zip, entry.path().string().c_str());
-      zip_entry_close(zip);
+  // Globing files that matches user's include patterns.
+  for (const auto& path : glob::rglob(project.include_patterns())) {
+    if (!fs::is_directory(path)) {
+      resources.push_back(path);
     }
   }
 
-  // Add additional files
-  for (const auto& file : project.distribute_additional_files()) {
-    if (!fs::exists(file)) {
-      continue;
-    }
+  // Removing files that matches exclude patterns.
+  for (const auto& pattern : project.exclude_patterns()) {
+    std::erase_if(resources, [&pattern](const auto& resource) {
+      return glob::matches(resource, utility::convert_backslashes(pattern));
+    });
+  }
 
-    console::output(" --> Packed additional file: {}.\n", file);
+  // Add resource.
+  for (const auto& resource : resources) {
+    console::output(" --> Packed resource: {}.\n", resource.string());
 
-    zip_entry_open(zip, file.c_str());
-    zip_entry_fwrite(zip, file.c_str());
+    zip_entry_open(zip, resource.string().c_str());
+    zip_entry_fwrite(zip, resource.string().c_str());
     zip_entry_close(zip);
   }
 
