@@ -8,8 +8,7 @@ static const std::array<char, 65> b64_table = {"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
                                                "abcdefghijklmnopqrstuvwxyz"
                                                "0123456789+/"};
 
-auto base64::encode(const std::vector<std::uint8_t>& data,
-                    std::size_t size) noexcept -> std::string {
+auto base64::encode(std::span<std::uint8_t> bytes) noexcept -> std::string {
   constexpr auto k1B64Byte  = 6;
   constexpr auto k2B64Bytes = 12;
   constexpr auto k3B64Bytes = 18;
@@ -18,14 +17,14 @@ auto base64::encode(const std::vector<std::uint8_t>& data,
   constexpr auto kB64Mask   = 0x3F;
 
   std::string result;
-  result.reserve((size + 2) / 3 * 4);
+  result.reserve((bytes.size_bytes() + 2) / 3 * 4);
   std::size_t bits{0};
 
   // NOLINTBEGIN(*-array-index)
-  for (; bits + 3 < size; bits += 3) {
-    uint32_t triple = (static_cast<uint32_t>(data[bits]) << k2Bytes) |
-                      (static_cast<uint32_t>(data[bits + 1]) << k1Byte) |
-                      static_cast<uint32_t>(data[bits + 2]);
+  for (; bits + 3 < bytes.size_bytes(); bits += 3) {
+    uint32_t triple = (static_cast<uint32_t>(bytes[bits]) << k2Bytes) |
+                      (static_cast<uint32_t>(bytes[bits + 1]) << k1Byte) |
+                      static_cast<uint32_t>(bytes[bits + 2]);
 
     result.push_back(b64_table[(triple >> k3B64Bytes) & kB64Mask]);
     result.push_back(b64_table[(triple >> k2B64Bytes) & kB64Mask]);
@@ -33,12 +32,12 @@ auto base64::encode(const std::vector<std::uint8_t>& data,
     result.push_back(b64_table[triple & kB64Mask]);
   }
 
-  if (bits < size) {
-    uint32_t triple = static_cast<uint32_t>(data[bits]) << k2Bytes;
+  if (bits < bytes.size_bytes()) {
+    uint32_t triple = static_cast<uint32_t>(bytes[bits]) << k2Bytes;
     result.push_back(b64_table[(triple >> k3B64Bytes) & kB64Mask]);
 
-    if (bits + 1 < size) {
-      triple |= uint32_t(data[bits + 1]) << k1Byte;
+    if (bits + 1 < bytes.size_bytes()) {
+      triple |= uint32_t(bytes[bits + 1]) << k1Byte;
       result.push_back(b64_table[(triple >> k2B64Bytes) & kB64Mask]);
       result.push_back(b64_table[(triple >> k1B64Byte) & kB64Mask]);
     } else {
@@ -46,7 +45,7 @@ auto base64::encode(const std::vector<std::uint8_t>& data,
       result.push_back('=');
     }
 
-    if (bits + 2 < size) {
+    if (bits + 2 < bytes.size_bytes()) {
       result.push_back(b64_table[triple & kB64Mask]);
     } else {
       result.push_back('=');

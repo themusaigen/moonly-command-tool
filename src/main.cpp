@@ -1,13 +1,16 @@
 #include <moonly/commands/bundle.hpp>
 #include <moonly/commands/init.hpp>
 #include <moonly/commands/pack.hpp>
+#include <moonly/crc32.hpp>
 
 #include <argparse/argparse.hpp>
 
 using namespace argparse;
 
 auto main(int argc, char** argv) -> int {
-  ArgumentParser program("moonly", "3.0.0-preview-1");
+  moonly::crc32::init();
+
+  ArgumentParser program("moonly", "3.0.0-preview-2");
 
   // 'init' command.
   ArgumentParser init_command("init");

@@ -7,28 +7,14 @@
 namespace fs = std::filesystem;
 
 namespace moonly {
+struct fileinfo {
+  std::uint64_t size{0};
+  std::uint32_t crc{0};
+};
 
 /// @brief Utility class for common file and string operations.
 class utility {
 public:
-  /// @brief Reads the contents of a text file.
-  ///
-  /// @param path The path to the file.
-  /// @return The content as a std::string, or empty if the file could not be
-  /// read.
-  [[nodiscard]] static auto read_file(const fs::path& path) noexcept
-      -> std::string;
-
-  /// @brief Reads the contents of a binary file into a vector of bytes.
-  ///
-  /// @param path The path to the file.
-  /// @return A vector of uint8_t containing the file data, or empty on failure.
-  [[nodiscard]] static auto read_file_as_binary(const fs::path& path) noexcept
-      -> std::vector<std::vector<std::uint8_t>>;
-
-  [[nodiscard]] static auto read_binary_as_base64(const fs::path& path) noexcept
-      -> std::vector<std::string>;
-
   /// @brief Removes the root directory from a given path.
   ///
   /// @param path The full path.

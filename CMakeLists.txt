@@ -31,7 +31,9 @@ target_sources(
           "src/moonly/commands/bundle.cpp"
           "src/moonly/bundler.cpp"
           "src/moonly/utility.cpp"
-          "src/moonly/base64.cpp")
+          "src/moonly/base64.cpp"
+          "src/moonly/crc32.cpp"
+          "src/moonly/filereader.cpp")
 
 # Only if top project.
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)

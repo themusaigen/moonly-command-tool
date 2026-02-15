@@ -1,13 +1,13 @@
 #pragma once
 
 #include <string>
-#include <vector>
+#include <span>
 #include <cstdint>
 
 namespace moonly {
 class base64 {
 public:
-  [[nodiscard]] static auto encode(const std::vector<std::uint8_t>& data,
-                                   std::size_t size) noexcept -> std::string;
+  [[nodiscard]] static auto encode(std::span<std::uint8_t> bytes) noexcept
+      -> std::string;
 };
 } // namespace moonly

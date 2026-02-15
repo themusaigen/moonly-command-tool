@@ -17,6 +17,9 @@ private:
   std::size_t       m_indent_backup{0};
 
 public:
+  /// @brief Adds a kernel moonly's functions.
+  void add_kernel_functions() noexcept;
+
   /// @brief Adds a standard header to the output.
   void add_header() noexcept;
 
@@ -65,14 +68,14 @@ public:
   [[nodiscard]] auto data() const noexcept -> std::string;
 
 private:
-  void store_indent() noexcept;
-  void load_indent() noexcept;
   void indent(std::size_t level = 1) noexcept;
   void unindent(std::size_t level = 1) noexcept;
-
-  void print_file(const std::string& data);
-  void print_file_writing(const std::string& content);
   void new_line() noexcept;
+
+  void bundle_directory_code(const fs::path& resource) noexcept;
+
+  [[nodiscard]] static auto escape_textfile(const std::string& content)
+      -> std::string;
 
   void print_no_indent(const std::string& text) {
     m_data << text;

@@ -2,6 +2,7 @@
 #include <moonly/configuration.hpp>
 #include <moonly/utility.hpp>
 #include <moonly/console.hpp>
+#include <moonly/filereader.hpp>
 
 #include <nlohmann/json.hpp>
 
@@ -13,11 +14,44 @@ namespace fs = std::filesystem;
 namespace moonly {
 
 void bundler::add_header() noexcept {
-  print("-- Bundled using Moonly CLI\n");
-  print("-- Get Moonly CLI from "
-        "<github.com/themusaigen/moonly-command-tool>\n");
-  print("-- Get Moonly from <github.com/themusaigen/moonly>\n\n");
+  std::string ascii_art =
+      R"(-- +==================================================+ --
+-- |                                                  | --
+-- |                                                  | --
+-- |                                                  | --
+-- |    __  __                           _            | --
+-- |   |  \/  |   ___     ___    _ __   | |  _   _    | --
+-- |   | |\/| |  / _ \   / _ \  | '_ \  | | | | | |   | --
+-- |   | |  | | | (_) | | (_) | | | | | | | | |_| |   | --
+-- |   |_|  |_|  \___/   \___/  |_| |_| |_|  \__, |   | --
+-- |                                         |___/    | --
+-- |                                                  | --
+-- |                                                  | --
+-- |                                                  | --
+-- +==================================================+ --)";
 
+  print(ascii_art);
+  new_line();
+
+  // NOLINTBEGIN(*-magic-numbers)
+  print("-- Version");
+  indent(4);
+  { print(": 3.0.0-preview-2\n"); }
+  unindent(4);
+  print("-- Moonly");
+  indent(5);
+  { print(": github.com/themusaigen/moonly\n"); }
+  unindent(5);
+  print("-- CLI");
+  indent(8);
+  { print(": github.com/themusaigen/moonly-command-tool\n\n"); }
+  unindent(8);
+  // NOLINTEND(*-magic-numbers)
+
+  console::output("-> Added file header.\n");
+}
+
+void bundler::add_kernel_functions() noexcept {
   print("local _moonly_b64charset = (function()\n");
   indent(2);
   {
@@ -28,6 +62,39 @@ void bundler::add_header() noexcept {
           "\"\n");
     print("for i = 1, #chars do t[string.byte(chars, i)] = i - 1 end\n");
     print("t[string.byte('=')] = -2\n");
+    print("return t\n");
+  }
+  unindent(2);
+  print("end)()\n\n");
+
+  print("local _moonly_crc32table = (function()\n");
+  indent(2);
+  {
+    print("local t = {}\n");
+    print("for i = 0, 255 do\n");
+    indent(2);
+    {
+      print("local c = i\n");
+      print("for _ = 0, 7 do\n");
+      indent(2);
+      {
+        print("if bit.band(c, 1) == 1 then\n");
+        indent(2);
+        { print("c = bit.bxor(0xEDB88320, bit.rshift(c, 1))\n"); }
+        unindent(2);
+        print("else\n");
+        indent(2);
+        { print("c = bit.rshift(c, 1)\n"); }
+        unindent(2);
+        print("end\n");
+        print("c = bit.band(c, 0xFFFFFFFF)\n");
+      }
+      unindent(2);
+      print("end\n");
+      print("t[i] = c\n");
+    }
+    unindent(2);
+    print("end\n");
     print("return t\n");
   }
   unindent(2);
@@ -75,12 +142,34 @@ void bundler::add_header() noexcept {
   unindent(2);
   print("end\n\n");
 
-  console::output("-> Added file header.\n");
+  print("local function _moonly_crc32(str)\n");
+  indent(2);
+  {
+    print("local crc = 0xFFFFFFFF\n");
+    print("for i = 1, #str do\n");
+    indent(2);
+    {
+      print("local b = str:byte(i)\n");
+      print("crc = bit.bxor(_moonly_crc32table[bit.band(bit.bxor(crc, b), "
+            "0xFF)], bit.rshift(crc, 8))\n");
+      print("crc = bit.band(crc, 0xFFFFFFFF)\n");
+    }
+    unindent(2);
+    print("end\n");
+    print("crc = bit.band(bit.bxor(crc, 0xFFFFFFFF), 0xFFFFFFFF)\n");
+    print("return crc >= 0 and crc or crc + 4294967296\n");
+  }
+  unindent(2);
+  print("end\n\n");
 }
 
 void bundler::add_fodder() noexcept {
+  print("-- Cleanup moonly's kernel.\n");
+  print("_moonly_crc32table = nil\n");
+  print("_moonly_crc32 = nil\n");
   print("_moonly_b64charset = nil\n");
-  print("_moonly_b64decode = nil\n\n");
+  print("_moonly_b64decode = nil\n");
+  print("-- Cleanup ended.\n\n");
 
   console::output("-> Added file fodder.\n");
 }
@@ -144,6 +233,20 @@ void bundler::add_scripts(const fs::path& directory) noexcept {
 }
 
 void bundler::add_script(const std::filesystem::path& file) noexcept {
+  filereader reader(file);
+
+  std::string content{};
+
+  // clang-format off
+  reader
+    .text(content)
+    .strip_bundle();
+  // clang-format on
+
+  if (!reader.read()) {
+    return;
+  }
+
   auto without_root_directory = utility::remove_root_directory(file);
   auto directories = utility::split(without_root_directory.string(), "\\");
 
@@ -161,25 +264,52 @@ void bundler::add_script(const std::filesystem::path& file) noexcept {
   console::output(
       " -> Bundled '{}' script as package '{}'.\n", file.string(), package);
 
-  print("-- Package <{}> ({})", file.filename().string(), file.string());
-  new_line();
+  // NOLINTBEGIN(*-magic-numbers)
+  print("-- Package");
+  indent(4);
+  { print(": {}\n", file.filename().string()); }
+  unindent(4);
+  print("-- Path");
+  indent(7);
+  { print(": {}\n", file.generic_string()); }
+  unindent(7);
+  // NOLINTEND(*-magic-numbers)
 
-  print("package.preload[\"{}\"] = function()", package);
-  new_line();
+  print("do\n");
   indent(2);
-  print_file(utility::read_file(file));
+  {
+    print("package.preload[\"{}\"] = function()\n", package);
+    indent(2);
+    {
+      for (const auto& line : utility::split(content, "\n")) {
+        print(line);
+        new_line();
+      }
+    }
+    unindent(2);
+    print("end\n");
+  }
   unindent(2);
-  print("end");
-  new_line();
-  new_line();
+  print("end\n\n");
 }
 
 void bundler::add_core_file(const fs::path& path) noexcept {
-  print("-- Core file <init.lua> ({})", path.string());
-  new_line();
+  filereader reader(path);
 
-  print(utility::read_file(path));
-  new_line();
+  std::string content{};
+
+  // clang-format off
+  reader
+    .text(content)
+    .strip_bundle();
+  // clang-format on
+
+  if (!reader.read()) {
+    return;
+  }
+
+  print("-- init.lua ({})\n", path.generic_string());
+  print(content);
 
   console::output("-> Bundled core 'init.lua'.\n");
 }
@@ -221,206 +351,205 @@ void bundler::add_resource(const std::filesystem::path& resource) noexcept {
 }
 
 void bundler::add_text_file(const std::filesystem::path& file) noexcept {
-  auto text = utility::read_file(file);
-  if (text.empty()) {
+  filereader reader(file);
+
+  std::string content{};
+  std::size_t size{0};
+
+  // clang-format off
+  reader
+    .size(size)
+    .text(content);
+  // clang-format on
+
+  if (!reader.read()) {
     return;
   }
 
-  console::output(" -> Bundled text file '{}'.\n", file.string());
+  console::output(" -> Bundled text file '{}'.\n", file.generic_string());
 
-  // Validate directories
-  auto directories = utility::split(file.generic_string(), "/");
-  if (!directories.empty()) {
-    fs::path dir = "moonloader";
-    for (const auto& directory : directories) {
-      dir /= directory;
+  print("-- Text");
+  indent(4);
+  { print(": {}\n", file.filename().string()); }
+  unindent(4);
+  print("-- Path");
+  indent(4);
+  { print(": {}\n", file.generic_string()); }
+  unindent(4);
+  print("-- Size");
+  indent(4);
+  { print(": {}\n", size); }
+  unindent(4);
 
-      print("if not doesDirectoryExist(\"{}\") then", dir.generic_string());
+  print("do\n");
+  indent(2);
+  {
+    bundle_directory_code(file);
+
+    print("-- Creating a resource.\n");
+    print("local expected_content = {}\n", escape_textfile(content));
+    print("local expected_size = {}\n\n", size);
+
+    const auto path = fs::path{"moonloader"} / file;
+
+    print("local unpack = not doesFileExist(\"{}\")\n", path.generic_string());
+    print("if not unpack then\n");
+    indent(2);
+    {
+      print("local file = io.open(\"{}\", 'rb')\n", path.generic_string());
+      print("local size = file:seek(\"end\")\n");
+      print("file:seek(\"set\", 0)\n");
+      print(
+          R"(unpack = size ~= expected_size or file:read("*a"):gsub('\r\n', '\n'):gsub('\r', '\n') ~= expected_content:gsub('\r\n', '\n'):gsub('\r', '\n'))");
       new_line();
-      indent(2);
-      print("createDirectory(\"{}\")", dir.generic_string());
-      unindent(2);
-      new_line();
-      print("end");
-      new_line();
-      new_line();
+      print("file:close()\n");
     }
+    unindent(2);
+    print("end\n\n");
+
+    print("if unpack then\n");
+    indent(2);
+    {
+      print("local file = io.open(\"{}\", 'w+')\n", path.generic_string());
+      print("if not file then\n");
+      indent(2);
+      {
+        print("error(\"moonly: can't open file '{}'.\")\n",
+              path.generic_string());
+      }
+      unindent(2);
+      print("end\n\n");
+
+      print("file:write(expected_content)\n");
+      print("file:flush()\n");
+      print("file:close()\n");
+    }
+    unindent(2);
+    print("end\n");
   }
-
-  // Validate file.
-  const fs::path path = "moonloader" / file;
-
-  print("-- Text File <{}> ({})", file.filename().string(), file.string());
-  new_line();
-
-  print("if not doesFileExist(\"{}\") then", path.generic_string());
-  new_line();
-  indent(2);
-
-  print(R"(local file = io.open("{}", "w+"))", path.generic_string());
-  new_line();
-  print("if not file then");
-  new_line();
-  indent(2);
-  print("error(\"can't open the file\")");
-  new_line();
   unindent(2);
-  print("end");
-  new_line();
-  print_file_writing(text);
-  new_line();
-  print("file:flush()");
-  new_line();
-  print("file:close()");
-  new_line();
-  unindent(2);
-  print("end");
-  new_line();
-  new_line();
+  print("end\n\n");
 }
 
 void bundler::add_binary(const std::filesystem::path& file) noexcept {
-  auto chunks = utility::read_binary_as_base64(file);
-  if (chunks.empty()) {
+  filereader reader(file);
+
+  std::vector<std::string> chunks{};
+  std::size_t              size{};
+  std::uint32_t            crc32{};
+
+  // clang-format off
+  reader
+    .size(size)
+    .crc32(crc32)
+    .base64(chunks);
+  // clang-format on
+
+  if (!reader.read()) {
     return;
   }
 
-  console::output(" -> Bundled binary file '{}'.\n", file.string());
+  console::output(" -> Bundled binary file '{}'.\n", file.generic_string());
 
-  print("-- Binary File <{}> ({})", file.filename().string(), file.string());
-  new_line();
+  // NOLINTBEGIN(*-magic-numbers)
+  print("-- Binary");
+  indent(4);
+  { print(": {}\n", file.filename().string()); }
+  unindent(4);
+  print("-- Path");
+  indent(6);
+  { print(": {}\n", file.generic_string()); }
+  unindent(6);
+  print("-- Size");
+  indent(6);
+  { print(": {}\n", size); }
+  unindent(6);
+  print("-- CRC32");
+  indent(5);
+  { print(": {:X}\n", crc32); }
+  unindent(5);
+  // NOLINTEND(*-magic-numbers)
 
-  // Validate directories
-  auto directories = utility::split(file.generic_string(), "/");
-  if (!directories.empty()) {
-    fs::path dir = "moonloader";
-    for (const auto& directory : directories) {
-      dir /= directory;
+  print("do\n");
+  indent(2);
+  {
+    bundle_directory_code(file);
 
-      print("if not doesDirectoryExist(\"{}\") then", dir.generic_string());
+    const auto path = fs::path{"moonloader"} / file;
+
+    print("-- Creating a resource.\n");
+    print("local expected_crc = {:#X}\n", crc32);
+    print("local expected_size = {}\n\n", size);
+
+    print("local unpack = not doesFileExist(\"{}\")\n", path.generic_string());
+    print("if not unpack then\n");
+    indent(2);
+    {
+      print(R"(local file = io.open("{}", "rb"))", path.generic_string());
       new_line();
+
+      print("local filesize = file:seek(\"end\")\n");
+      print("file:seek(\"set\", 0)\n");
+
+      print(
+          R"(unpack = expected_size ~= filesize or _moonly_crc32(file:read("*a")) ~= expected_crc)");
+      new_line();
+      print("file:close()\n");
+    };
+    unindent(2);
+    print("end\n\n");
+
+    print("if unpack then\n");
+    indent(2);
+    {
+      print("local file = io.open(\"{}\", 'w+b')\n", path.generic_string());
+      print("if not file then\n");
       indent(2);
-      print("createDirectory(\"{}\")", dir.generic_string());
+      {
+        print("error(\"moonly: can't open file '{}'.\")\n",
+              path.generic_string());
+      }
       unindent(2);
-      new_line();
-      print("end");
-      new_line();
-      new_line();
+      print("end\n\n");
+
+      print("local chunks = {\n");
+      indent(2);
+      {
+        auto size{chunks.size()};
+        for (std::size_t i = 0; i < size; i++) {
+          print("\"{}\"", chunks[i]);
+
+          if (i < size - 1) {
+            print_no_indent(",\n");
+          } else {
+            print_no_indent("\n");
+          }
+        }
+      }
+      unindent(2);
+      print("}\n\n");
+
+      print("for _, chunk in ipairs(chunks) do\n");
+      indent(2);
+      { print("file:write(_moonly_b64decode(chunk))\n"); }
+      unindent(2);
+      print("end\n\n");
+
+      print("file:flush()\n");
+      print("file:close()\n");
     }
+    unindent(2);
+    print("end\n");
   }
-
-  // Validate file.
-  const fs::path path = "moonloader" / file;
-
-  print("if not doesFileExist(\"{}\") then", path.generic_string());
-  new_line();
-  indent(2);
-
-  print(R"(local file = io.open("{}", "w+b"))", path.generic_string());
-  new_line();
-  print("if not file then");
-  new_line();
-  indent(2);
-  print("error(\"can't open the file\")");
-  new_line();
-  unindent(2);
-  print("end");
-  new_line();
-  new_line();
-
-  print("local chunks = {\n");
-
-  indent(2);
-  for (std::size_t i = 0; i < chunks.size(); i++) {
-    print("\"{}\"", chunks[i]);
-
-    if (i < chunks.size() - 1) {
-      print_no_indent(",\n");
-    }
-  }
-  unindent(2);
-  new_line();
-  print("}\n\n");
-
-  print("for _, chunk in ipairs(chunks) do\n");
-  indent(2);
-  print("file:write(_moonly_b64decode(chunk))\n");
   unindent(2);
   print("end\n\n");
-
-  // constexpr auto kBytesInRow = 8ULL;
-  // for (std::size_t chunk = 0; chunk < chunks.size(); chunk++) {
-  //   print("local chunk");
-  //   print_no_indent(std::to_string(chunk));
-  //   print_no_indent(" = {");
-  //   new_line();
-  //   indent(2);
-
-  //   for (std::size_t byte = 0; byte < chunks[chunk].size(); byte++) {
-  //     if (byte % kBytesInRow == 0 && byte > 0) {
-  //       new_line();
-  //       print("");
-  //     }
-
-  //     print_no_indent("0x{:02X}, ", static_cast<int>(chunks[chunk][byte]));
-  //   }
-
-  //   unindent(2);
-  //   new_line();
-  //   print("}");
-  //   new_line();
-  // }
-
-  // new_line();
-  // print("local function write_chunk(file, chunk)");
-  // new_line();
-  // indent(2);
-  // print("local buffer = \"\"");
-  // new_line();
-  // print("for _, byte in ipairs(chunk) do");
-  // new_line();
-  // indent(2);
-  // print("buffer = buffer .. string.char(byte)");
-  // new_line();
-  // unindent(2);
-  // print("end");
-  // new_line();
-  // print("file:write(buffer)");
-  // new_line();
-  // unindent(2);
-  // print("end");
-  // new_line();
-  // new_line();
-
-  // for (std::size_t chunk = 0; chunk < chunks.size(); chunk++) {
-  //   print("write_chunk(file, chunk{})", chunk);
-  //   new_line();
-  // }
-
-  new_line();
-  print("file:flush()");
-  new_line();
-  print("file:close()");
-  new_line();
-  unindent(2);
-  print("end");
-  new_line();
-  new_line();
 }
 
 auto bundler::data() const noexcept -> std::string {
   return m_data.str();
 }
 
-void bundler::print_file(const std::string& data) {
-  // Little trick to enforce printing newline.
-  for (const auto& line : utility::split(data + '\n', "\n")) {
-    print(line);
-    new_line();
-  }
-}
-
-void bundler::print_file_writing(const std::string& content) {
+auto bundler::escape_textfile(const std::string& content) -> std::string {
   std::size_t length            = content.length();
   std::size_t long_string_level = 0;
   std::size_t index             = 0;
@@ -450,9 +579,51 @@ void bundler::print_file_writing(const std::string& content) {
 
   auto long_string_level_str = std::string(long_string_level, '=');
 
-  print("file:write([{}[", long_string_level_str);
-  print_no_indent(content);
-  print_no_indent("]{}])", long_string_level_str);
+  std::string trimmed = content;
+  trimmed.erase(0, trimmed.find_first_not_of(" \t\r\n"));
+  trimmed.erase(trimmed.find_last_not_of(" \t\r\n") + 1);
+
+  return std::format(
+      "[{}[{}]{}]", long_string_level_str, trimmed, long_string_level_str);
+}
+
+void bundler::bundle_directory_code(const fs::path& resource) noexcept {
+  auto directories = utility::split(resource.generic_string(), "/");
+  if (!directories.empty()) {
+    print("-- Creating resource directories, if necessary.\n");
+    print("local directories = {\n");
+    indent(2);
+    {
+      auto directory = fs::path{"moonloader"};
+      auto size      = directories.size();
+      for (std::size_t i = 0; i < size; i++) {
+        directory /= directories[i];
+
+        // Add directory to the list.
+        print("\"{}\"", directory.generic_string());
+
+        if (i < size - 1) {
+          print_no_indent(",\n");
+        } else {
+          print_no_indent("\n");
+        }
+      }
+    }
+    unindent(2);
+    print("}\n\n");
+
+    print("for _, directory in ipairs(directories) do\n");
+    indent(2);
+    {
+      print("if not doesDirectoryExist(directory) then\n");
+      indent(2);
+      { print("createDirectory(directory)\n"); }
+      unindent(2);
+      print("end\n");
+    }
+    unindent(2);
+    print("end\n\n");
+  }
 }
 
 void bundler::new_line() noexcept {
@@ -468,20 +639,6 @@ void bundler::unindent(std::size_t level) noexcept {
 }
 
 void bundler::indent(std::size_t level) noexcept {
-  load_indent();
-
   m_indent += level;
-}
-
-void bundler::load_indent() noexcept {
-  if (m_indent_backup != 0) {
-    m_indent        = m_indent_backup;
-    m_indent_backup = 0;
-  }
-}
-
-void bundler::store_indent() noexcept {
-  m_indent_backup = m_indent;
-  m_indent        = 0;
 }
 } // namespace moonly

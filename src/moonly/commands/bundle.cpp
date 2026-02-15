@@ -37,8 +37,6 @@ void bundle_command::process(
 
   bundler bundler;
   bundler.add_header();
-  bundler.constant_propagation();
-  bundler.add_scripts(source_dir);
 
   // Preparing for collecting resources.
   std::vector<fs::path> resources;
@@ -59,12 +57,38 @@ void bundle_command::process(
     });
   }
 
-  // Add resource.
+  // Checking is we need to add kernel functions like b64decode, crc32 and
+  // etc...
+  bool needs_to_add_kernel{false};
+  for (const auto& resource : resources) {
+    if (!resource.has_extension() || !utility::is_text_file(resource)) {
+      needs_to_add_kernel = true;
+      break;
+    }
+  }
+
+  // Add if needed.
+  if (needs_to_add_kernel) {
+    bundler.add_kernel_functions();
+  }
+
+  // Add resources firstly.
   for (const auto& resource : resources) {
     bundler.add_resource(resource);
   }
 
-  bundler.add_fodder();
+  // Add cleanup fodder.
+  if (needs_to_add_kernel) {
+    bundler.add_fodder();
+  }
+
+  // Perform constant propagation.
+  bundler.constant_propagation();
+
+  // Add scripts.
+  bundler.add_scripts(source_dir);
+
+  // Add core file.
   bundler.add_core_file(project.core_script_path());
 
   file << bundler.data();
