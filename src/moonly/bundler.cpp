@@ -261,8 +261,9 @@ void bundler::add_script(const std::filesystem::path& file) noexcept {
     package += file.filename().replace_extension("").string();
   }
 
-  console::output(
-      " -> Bundled '{}' script as package '{}'.\n", file.string(), package);
+  console::output(" -> Bundled '{}' script as package '{}'.\n",
+                  file.generic_string(),
+                  package);
 
   // NOLINTBEGIN(*-magic-numbers)
   print("-- Package");

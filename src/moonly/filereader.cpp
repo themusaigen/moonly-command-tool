@@ -3,7 +3,6 @@
 #include <moonly/crc32.hpp>
 
 #include <fstream>
-#include <sstream>
 
 using namespace moonly;
 
@@ -63,6 +62,26 @@ auto filereader::read() noexcept -> bool {
   std::uint32_t crc{kU32Max};
   bool          in_bundle_section{false};
 
+  // Reading script now, ignore crc, etc...
+  if (m_text != nullptr && m_strip_bundle) {
+    std::string line;
+    while (std::getline(file, line)) {
+      if (line == "-- moonly bundle start") {
+        in_bundle_section = true;
+        continue;
+      }
+      if (line == "-- moonly bundle stop") {
+        in_bundle_section = false;
+        continue;
+      }
+      if (!in_bundle_section) {
+        *m_text += line + '\n';
+      }
+    }
+
+    return file.eof();
+  }
+
   // Create buffer.
   std::vector<char> buffer(kRawChunkSize);
   while (file) {
@@ -82,25 +101,7 @@ auto filereader::read() noexcept -> bool {
     }
 
     if (m_text != nullptr) {
-      if (m_strip_bundle) {
-        std::stringstream stream(std::string(buffer.data(), bytes_read));
-        std::string       line;
-        while (std::getline(stream, line)) {
-          if (line == "-- moonly bundle start") {
-            in_bundle_section = true;
-            continue;
-          }
-          if (line == "-- moonly bundle stop") {
-            in_bundle_section = false;
-            continue;
-          }
-          if (!in_bundle_section) {
-            *m_text += line + '\n';
-          }
-        }
-      } else {
-        m_text->append(buffer.data(), bytes_read);
-      }
+      m_text->append(buffer.data(), bytes_read);
     } else if (m_binary != nullptr) {
       m_binary->insert(
           m_binary->end(),
