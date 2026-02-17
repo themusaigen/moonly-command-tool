@@ -36,7 +36,7 @@ void bundler::add_header() noexcept {
   // NOLINTBEGIN(*-magic-numbers)
   print("-- Version");
   indent(4);
-  { print(": 3.0.0-preview-2\n"); }
+  { print(": 3.0.0\n"); }
   unindent(4);
   print("-- Moonly");
   indent(5);
@@ -174,6 +174,97 @@ void bundler::add_fodder() noexcept {
   console::output("-> Added file fodder.\n");
 }
 
+// NOLINTBEGIN(*-no-recursion)
+namespace {
+auto format_json_value(const nlohmann::json& json, std::size_t indent = 0)
+    -> std::string {
+  using namespace std::chrono;
+
+  if (json.is_null()) {
+    return "nil";
+  }
+
+  if (json.is_boolean() || json.is_number()) {
+    return nlohmann::to_string(json);
+  }
+
+  if (json.is_string()) {
+    if (json.template get<std::string>() == "<$date>") {
+      return std::to_string(
+          duration_cast<milliseconds>(system_clock::now().time_since_epoch())
+              .count());
+    }
+
+    return nlohmann::to_string(json);
+  }
+
+  if ((json.is_object() || json.is_array()) && json.empty()) {
+    return "{}";
+  }
+
+  if (json.is_array()) {
+    // Next indentation level.
+    indent += 2;
+
+    // Create output string.
+    std::string array = "{\n";
+
+    // Format all values.
+    for (std::size_t i = 0, size = json.size(); i < size; i++) {
+      array += std::string(indent, ' ') + format_json_value(json[i], indent);
+
+      if (i < size - 1) {
+        array += ",\n";
+      } else {
+        array += '\n';
+      }
+    }
+
+    // Previous indentation level.
+    indent -= 2;
+
+    // End.
+    array += std::string(indent, ' ') + "}";
+    return array;
+  }
+
+  if (json.is_object()) {
+    // Next indentation level.
+    indent += 2;
+
+    // Create output string.
+    std::string object = "{\n";
+
+    // Format all keys and values
+    std::size_t count{0};
+    std::size_t size{json.size()};
+    for (const auto& [key, value] : json.items()) {
+      object +=
+          std::string(indent, ' ') +
+          std::format("[\"{}\"] = {}", key, format_json_value(value, indent));
+
+      if (count < size - 1) {
+        object += ",\n";
+      } else {
+        object += '\n';
+      }
+
+      count++;
+    }
+
+    // Previous indentation level.
+    indent -= 2;
+
+    // End.
+    object += std::string(indent, ' ') + "}";
+    return object;
+  }
+
+  return "";
+}
+} // namespace
+// NOLINTEND(*-no-recursion)
+
 void bundler::constant_propagation() noexcept {
   using namespace std::chrono;
 
@@ -181,25 +272,9 @@ void bundler::constant_propagation() noexcept {
 
   auto constants = configuration::get().distribute_constants();
   for (const auto& [key, value] : constants) {
-    console::output(" --> Added '{}' constant.\n", key);
+    console::output(" --> Bundled '{}' constant.\n", key);
 
-    if (!value.is_null() && !value.is_boolean() && !value.is_number() &&
-        !value.is_string()) {
-      continue;
-    }
-
-    auto data = nlohmann::to_string(value);
-    if (value.is_string()) {
-      if (value.template get<std::string>() == "<$date>") {
-        data = std::to_string(
-            duration_cast<milliseconds>(system_clock::now().time_since_epoch())
-                .count());
-      }
-    } else if (value.is_null()) {
-      data = "nil";
-    }
-
-    print("{} = {}\n", key, data);
+    print("{} = {}\n", key, format_json_value(value));
   }
 
   if (!constants.empty()) {

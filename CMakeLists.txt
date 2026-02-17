@@ -26,9 +26,11 @@ target_sources(
   ${PROJECT_NAME}
   PRIVATE "src/main.cpp"
           "src/moonly/configuration.cpp"
+          "src/moonly/console.cpp"
           "src/moonly/commands/init.cpp"
           "src/moonly/commands/pack.cpp"
           "src/moonly/commands/bundle.cpp"
+          "src/moonly/commands/watch.cpp"
           "src/moonly/bundler.cpp"
           "src/moonly/utility.cpp"
           "src/moonly/base64.cpp"

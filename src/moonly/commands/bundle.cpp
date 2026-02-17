@@ -11,8 +11,7 @@
 namespace fs = std::filesystem;
 
 namespace moonly {
-void bundle_command::process(
-    [[maybe_unused]] argparse::ArgumentParser& command) noexcept {
+void bundle_command::process() noexcept {
   auto project = configuration::get();
 
   // Nothing to bundle.
@@ -45,16 +44,9 @@ void bundle_command::process(
 
   // Globing files that matches user's include patterns.
   for (const auto& path : glob::rglob(project.include_patterns())) {
-    if (!fs::is_directory(path)) {
+    if (!fs::is_directory(path) && !project.is_path_ignored(path)) {
       resources.push_back(path);
     }
-  }
-
-  // Removing files that matches exclude patterns.
-  for (const auto& pattern : project.exclude_patterns()) {
-    std::erase_if(resources, [&pattern](const auto& resource) {
-      return glob::matches(resource, utility::convert_backslashes(pattern));
-    });
   }
 
   // Checking is we need to add kernel functions like b64decode, crc32 and

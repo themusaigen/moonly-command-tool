@@ -4,7 +4,6 @@
 #include <moonly/utility.hpp>
 #include <glob.hpp>
 
-#include <argparse/argparse.hpp>
 #include <nlohmann/json.hpp>
 #include <zip.h>
 
@@ -15,8 +14,7 @@ namespace fs = std::filesystem;
 
 namespace moonly {
 
-void pack_command::process(
-    [[maybe_unused]] argparse::ArgumentParser& command) noexcept {
+void pack_command::process() noexcept {
   using namespace nlohmann;
 
   auto project = configuration::get();
@@ -91,16 +89,9 @@ void pack_command::process(
 
   // Globing files that matches user's include patterns.
   for (const auto& path : glob::rglob(project.include_patterns())) {
-    if (!fs::is_directory(path)) {
+    if (!fs::is_directory(path) && !project.is_path_ignored(path)) {
       resources.push_back(path);
     }
-  }
-
-  // Removing files that matches exclude patterns.
-  for (const auto& pattern : project.exclude_patterns()) {
-    std::erase_if(resources, [&pattern](const auto& resource) {
-      return glob::matches(resource, utility::convert_backslashes(pattern));
-    });
   }
 
   // Add resource.
