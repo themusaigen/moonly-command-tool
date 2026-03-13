@@ -11,7 +11,7 @@ using namespace argparse;
 auto main(int argc, char** argv) -> int {
   moonly::crc32::init();
 
-  ArgumentParser program("moonly", "3.0.0");
+  ArgumentParser program("moonly", "3.1.0");
 
   // 'init' command.
   ArgumentParser init_command("init");
@@ -30,7 +30,7 @@ auto main(int argc, char** argv) -> int {
       .default_value("dist");
   init_command.add_argument("-e", "--editor")
       .help("Specify code-editor. Moonly will generate settings for it.")
-      .choices("vscode");
+      .choices("vscode", "neovim", "nvim", "vim");
   init_command.add_argument("--dirs").help("Auto create directories.").flag();
 
   // 'pack' command.

@@ -6,9 +6,8 @@
 
 #include <glob.hpp>
 
-#include <Windows.h>
-
 #include <algorithm>
+#include <system_error>
 #include <thread>
 #include <chrono>
 #include <format>
@@ -30,27 +29,13 @@ void watch_command::process(argparse::ArgumentParser& parser) noexcept {
   const auto delay =
       std::max<std::uint64_t>(parser.get<std::uint64_t>("-d"), 50);
 
-  std::unordered_map<fs::path, FILETIME> resources;
+  std::unordered_map<fs::path, fs::file_time_type> resources;
 
   auto get_file_modify_time =
-      [](const fs::path& path) -> std::optional<_FILETIME> {
-    auto* handle = CreateFileA(path.generic_string().c_str(),
-                               GENERIC_READ,
-                               FILE_SHARE_READ | FILE_SHARE_WRITE,
-                               nullptr,
-                               OPEN_EXISTING,
-                               FILE_ATTRIBUTE_NORMAL,
-                               nullptr);
-
-    if (handle == INVALID_HANDLE_VALUE) {
-      return std::nullopt;
-    }
-
-    FILETIME time;
-    auto     result = GetFileTime(handle, nullptr, nullptr, &time);
-    CloseHandle(handle);
-
-    if (result == 0) {
+      [](const fs::path& path) -> std::optional<fs::file_time_type> {
+    std::error_code err;
+    auto            time = fs::last_write_time(path, err);
+    if (err) {
       return std::nullopt;
     }
 
@@ -100,11 +85,9 @@ void watch_command::process(argparse::ArgumentParser& parser) noexcept {
         continue;
       }
 
-      if ((new_modify_time->dwLowDateTime != modify_time.dwLowDateTime) ||
-          (new_modify_time->dwHighDateTime != modify_time.dwHighDateTime)) {
+      if (new_modify_time != modify_time) {
         needs_to_update = true;
-
-        modify_time = new_modify_time.value();
+        modify_time     = new_modify_time.value();
 
         console::output("-> Detected changes in {}. Re{}...\n",
                         path.generic_string(),

@@ -101,6 +101,39 @@ void initialize_command::process(argparse::ArgumentParser& command) noexcept {
       } else {
         console::output(" --> Failed to create '.vscode/settings.json'.\n");
       }
+    } else if (editor == "neovim" || editor == "nvim" || editor == "vim") {
+      json settings{
+          {"runtime.version",     "LuaJIT"        },
+          {"runtime.path",
+           {std::format("{}/?.lua", source),
+            std::format("{}/?/init.lua", source),
+            std::format("{}/?.lua", library),
+            std::format("{}/?/init.lua", library)}},
+          {"diagnostics.globals",
+           {"main",
+            "onExitScript",
+            "onQuitGame",
+            "onScriptLoad",
+            "onScriptTerminate",
+            "onScriptMessage",
+            "onSystemMessage",
+            "onReceivePacket",
+            "onReceiveRpc",
+            "onSendPacket",
+            "onSendRpc",
+            "onWindowMessage",
+            "onStartNewGame",
+            "onLoadGame",
+            "onSaveGame"}                         }
+      };
+
+      std::ofstream luarc(".luarc.json");
+      if (luarc.is_open()) {
+        luarc << std::setw(2) << settings << '\n';
+        luarc.close();
+      } else {
+        console::output(" --> Failed to create '.luarc.json'.\n");
+      }
     }
   }
 
